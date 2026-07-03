@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
+import { useProctorSocket } from '../hooks/useProctorSocket';
 import { 
   ShieldAlert, 
   Wifi, 
@@ -76,36 +77,27 @@ export default function SecureWorkspace({
     }
   }, [videoRef.current]);
 
-  // Anti-Cheating Event Trackers
-  useEffect(() => {
-    const reportInfraction = (reason: string) => {
-      // Avoid double triggering if a modal is already active
+  // Sockets Telemetry and Screen Share Handshake Hook
+  const { syncCode, startScreenShare, screenShareActive, screenDimensions } = useProctorSocket({
+    onTriggerAIIntervention: onTriggerIntervention,
+    onViolationOccurred: (type) => {
+      let reason = "Proctoring violation detected.";
+      if (type === 'FOCUS_LOST') {
+        reason = "Window Focus Lost. Moving focus away from the test interface is flagged as a high-severity infraction.";
+      } else if (type === 'TAB_SWITCH') {
+        reason = "Tab Switch Detected. Attempting to browse other browser tabs has been flagged.";
+      } else if (type === 'SCREEN_UNSHARED') {
+        reason = "Screen Sharing Stopped. Screen sharing is mandatory for proctor validation.";
+      }
+
       if (activeViolation) return;
       
       const newCount = infractions + 1;
       setInfractions(newCount);
       setActiveViolation(reason);
       onViolationOccurred(newCount);
-    };
-
-    const handleBlur = () => {
-      reportInfraction("Window Focus Lost. Moving focus away from the test interface is flagged as a high-severity infraction.");
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        reportInfraction("Tab Switch Detected. Attempting to browse other browser tabs has been flagged.");
-      }
-    };
-
-    window.addEventListener('blur', handleBlur);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [infractions, activeViolation, onViolationOccurred]);
+    }
+  });
 
   // Debounced State Syncing
   const handleEditorChange = (value: string | undefined) => {
@@ -113,12 +105,14 @@ export default function SecureWorkspace({
     setCode(value);
     setSyncState('syncing');
 
+    // Call Sockets Telemetry sync handler
+    syncCode(value);
+
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
     debounceRef.current = setTimeout(() => {
-      // Simulated server syncing buffer
       setSyncState('synced');
     }, 2000);
   };
@@ -332,6 +326,10 @@ export default function SecureWorkspace({
             <span>Eye Tracker:</span>
             <span className="text-emerald-400">Locked</span>
           </div>
+          <div className="flex justify-between">
+            <span>Primary Screen:</span>
+            <span className="text-emerald-400">{screenDimensions ? `${screenDimensions.width}x${screenDimensions.height}` : 'Reading...'}</span>
+          </div>
           
           {/*
             ====================================================================
@@ -411,6 +409,29 @@ export default function SecureWorkspace({
               className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl text-xs transition active:scale-98"
             >
               I Acknowledge, Resume Coding
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Screen Share Handshake Overlay */}
+      {!screenShareActive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-800 max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-5 text-center">
+            <div className="h-14 w-14 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto animate-pulse">
+              <Maximize2 className="h-7 w-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white">Screen Share Verification</h3>
+              <p className="text-xs text-slate-450 leading-relaxed">
+                To ensure validation compliance and confirm single-monitor desktop specs, you must share your primary desktop monitor before the exam space unlocks.
+              </p>
+            </div>
+            <button
+              onClick={startScreenShare}
+              className="w-full py-3 bg-gradient-to-tr from-indigo-600 to-indigo-550 border border-indigo-500 text-white font-semibold rounded-xl text-xs transition active:scale-98 cursor-pointer"
+            >
+              Share Primary Monitor Screen
             </button>
           </div>
         </div>
