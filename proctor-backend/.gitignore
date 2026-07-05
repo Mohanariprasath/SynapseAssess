@@ -1,0 +1,16 @@
+# Python environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python compiled cache
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Candidate surveillance recordings database
+recordings/
+
+# Next.js / dev server logs
+*.log
