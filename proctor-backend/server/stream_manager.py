@@ -7,6 +7,8 @@ import socketio
 from pydantic import BaseModel
 
 from .media_processor import save_media_chunk
+from .diff_analyzer import analyze_code_diff, clear_session_diff
+from .ai_orchestrator import generate_interview_challenge
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -89,6 +91,7 @@ async def disconnect(sid: str) -> None:
     if sid in session_ledger:
         session_ledger[sid]["is_active_flag"] = False
         session_ledger[sid]["last_received_timestamp"] = int(time.time() * 1000)
+    clear_session_diff(sid)
     logger.warn(f"[Socket] Connection terminated: {sid}")
 
 @sio.on("security_anomaly")
@@ -126,11 +129,51 @@ async def handle_security_anomaly(sid: str, data: Dict[str, Any]) -> None:
 
 @sio.on("code_update")
 async def handle_code_update(sid: str, data: Dict[str, Any]) -> None:
-    """Ingests debounced code buffer snapshots for candidate solution tracking."""
-    if sid in session_ledger:
-        session_ledger[sid]["last_received_timestamp"] = int(time.time() * 1000)
-    code_length = data.get("length", 0)
-    logger.info(f"[Telemetry] Code sync snapshot from {sid}. Length: {code_length} chars.")
+    """
+    Ingests debounced code buffer snapshots, runs differential analysis,
+    and triggers AI proctored challenges upon paste anomalies.
+    """
+    if sid not in session_ledger:
+        return
+        
+    session_ledger[sid]["last_received_timestamp"] = int(time.time() * 1000)
+    code = data.get("code", "")
+    code_length = len(code)
+    
+    # Analyze typing speed and character changes statefully
+    is_anomaly, infraction_type = analyze_code_diff(sid, code)
+    
+    if is_anomaly:
+        timestamp = int(time.time() * 1000)
+        session_ledger[sid]["warnings_count"] += 1
+        session_ledger[sid]["anomalies"].append({
+            "type": infraction_type,
+            "timestamp": timestamp,
+            "details": f"Typing analysis detected: {infraction_type}"
+        })
+        
+        current_warnings = session_ledger[sid]["warnings_count"]
+        logger.warn(
+            f"[Telemetry] AI INTERVENTION | SID: {sid} | Anomaly: {infraction_type} | Warnings: {current_warnings}/3"
+        )
+        
+        # Invoke low-latency Gemini orchestrator asynchronously
+        language = data.get("language", "javascript")
+        try:
+            ai_question = await generate_interview_challenge(code, language)
+            
+            # Broadcast high-priority intervention lock triggers to client
+            logger.info(f"[Socket] Broadcasting intervention overlay triggers to client: {sid}")
+            await sio.emit("ai_intervention_trigger", {"question": ai_question}, room=sid)
+        except Exception as err:
+            logger.error(f"[Socket] Failed to generate or emit AI challenge to {sid}: {err}")
+            
+        # Check overall threshold bounds
+        if current_warnings >= 3:
+            logger.error(f"[Telemetry] Security threshold exceeded for {sid}. Disqualifying candidate.")
+            await sio.emit("session_disqualified", {"warnings": current_warnings}, room=sid)
+    else:
+        logger.info(f"[Telemetry] Code sync snapshot from {sid}. Length: {code_length} chars.")
 
 @sio.on("screen_share_handshake")
 async def handle_screen_share_handshake(sid: str, data: Dict[str, Any]) -> None:
