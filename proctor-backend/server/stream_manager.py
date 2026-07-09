@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from .media_processor import save_media_chunk
 from .diff_analyzer import analyze_code_diff, clear_session_diff
 from .ai_orchestrator import generate_interview_challenge
+from .grading_engine import evaluate_response
+from .metrics_aggregator import calculate_session_metrics
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +47,11 @@ class SessionState(BaseModel):
     candidate_name: str = "Anonymous Candidate"
     screen_dimensions: Dict[str, int] = None
     anomalies: List[Dict[str, Any]] = []
+    conceptual_scores: List[int] = []
+    justification_summaries: List[str] = []
+    risk_score: float = 0.0
+    risk_rating: str = "Low"
+    is_finalized: bool = False
 
 session_ledger: Dict[str, Dict[str, Any]] = {}
 
@@ -69,6 +76,28 @@ async def get_session_by_id(sid: str):
         return {"error": "Session ID not found in ledger."}
     return session_ledger[sid]
 
+@fastapi_app.post("/sessions/{sid}/finalize")
+async def finalize_session(sid: str):
+    """Calculates final penalty risk metrics, locks active flags, and saves the candidate record."""
+    if sid not in session_ledger:
+        return {"error": "Session ID not found in ledger."}
+        
+    state = session_ledger[sid]
+    if state.get("is_finalized", False):
+        return state
+        
+    # Calculate final metrics using penalty matrix aggregator
+    metrics = calculate_session_metrics(state)
+    
+    # Update and lock state
+    state.update(metrics)
+    state["is_active_flag"] = False
+    state["is_finalized"] = True
+    state["last_received_timestamp"] = int(time.time() * 1000)
+    
+    logger.info(f"[Core] Finalized session {sid}. Immutable record archived.")
+    return state
+
 # WebSocket Telemetry Channels
 
 @sio.event
@@ -80,7 +109,12 @@ async def connect(sid: str, environ: Dict[str, Any], auth: Any = None) -> bool:
         "last_received_timestamp": int(time.time() * 1000),
         "is_active_flag": True,
         "screen_dimensions": None,
-        "anomalies": []
+        "anomalies": [],
+        "conceptual_scores": [],
+        "justification_summaries": [],
+        "risk_score": 0.0,
+        "risk_rating": "Low",
+        "is_finalized": False
     }
     logger.info(f"[Socket] Secure handshake verified. Client connected: {sid}")
     return True
@@ -200,3 +234,47 @@ async def handle_media_chunk(sid: str, data: Any) -> None:
         await save_media_chunk(sid, data)
     except Exception as err:
         logger.error(f"[Socket] Error processing binary chunk from {sid}: {err}")
+
+@sio.on("submit_answer")
+async def handle_submit_answer(sid: str, data: Dict[str, Any]) -> None:
+    """
+    Ingests candidate justification answers, evaluates understanding using Gemini,
+    registers results to ledger, and releases the screen lockout trigger.
+    """
+    if sid not in session_ledger:
+        logger.error(f"[Socket] Answer submitted for unregistered session {sid}")
+        return
+        
+    question = data.get("question", "")
+    answer = data.get("answer", "")
+    code = data.get("code", "")
+    
+    logger.info(f"[Socket] Evaluating answer payload from {sid}...")
+    
+    try:
+        # Call cognitive grading engine asynchronously
+        evaluation = await evaluate_response(code, question, answer)
+        score = evaluation.get("conceptual_score", 50)
+        summary = evaluation.get("justification_summary", "")
+        
+        # Append results to candidate ledger
+        session_ledger[sid]["conceptual_scores"].append(score)
+        session_ledger[sid]["justification_summaries"].append(summary)
+        session_ledger[sid]["last_received_timestamp"] = int(time.time() * 1000)
+        
+        logger.info(f"[Socket] Graded answer for {sid}: score {score}/100")
+        
+        # Broadcast release signal to client workspace to unlock Monaco editor
+        await sio.emit(
+            "ai_intervention_release",
+            {
+                "success": True,
+                "conceptual_score": score,
+                "justification_summary": summary
+            },
+            room=sid
+        )
+    except Exception as err:
+        logger.error(f"[Socket] Error grading candidate answer for {sid}: {err}")
+        # Fail-safe release to ensure client doesn't stay permanently locked on network dropouts
+        await sio.emit("ai_intervention_release", {"success": True}, room=sid)

@@ -1,25 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PreFlightGate from '../components/PreFlightGate';
 import SecureWorkspace from '../components/SecureWorkspace';
 import AIInterventionModal from '../components/AIInterventionModal';
 import { ShieldAlert, Maximize, Lock, AlertTriangle, ShieldCheck } from 'lucide-react';
 
-type ExamPhase = 'preflight' | 'secure-workspace' | 'terminated';
+import CandidateLogin from '../components/CandidateLogin';
+
+type ExamPhase = 'login' | 'preflight' | 'secure-workspace' | 'terminated' | 'completed';
 
 export default function Home() {
-  const [phase, setPhase] = useState<ExamPhase>('preflight');
+  const [phase, setPhase] = useState<ExamPhase>('login');
+  const [candidateName, setCandidateName] = useState<string>('');
+  const [examId, setExamId] = useState<string>('');
+  const [examType, setExamType] = useState<'coding' | 'mcq'>('coding');
+  const [examTitle, setExamTitle] = useState<string>('');
+  const [examDescription, setExamDescription] = useState<string>('');
+  const [starterCode, setStarterCode] = useState<string>('');
+  const [mcqQuestions, setMcqQuestions] = useState<any[]>([]);
+
   const [verificationPhoto, setVerificationPhoto] = useState<string | null>(null);
   const [isFullscreenViolation, setIsFullscreenViolation] = useState<boolean>(false);
   const [isAIInterventionOpen, setIsAIInterventionOpen] = useState<boolean>(false);
+  const [aiQuestion, setAiQuestion] = useState<string>('');
   const [violationsCount, setViolationsCount] = useState<number>(0);
   const [justifications, setJustifications] = useState<string[]>([]);
+  const [isScreenShareActive, setIsScreenShareActive] = useState<boolean>(false);
+  const [isCameraEnabled, setIsCameraEnabled] = useState<boolean>(true);
+  const [isFullscreenEnabled, setIsFullscreenEnabled] = useState<boolean>(true);
+
+  const submitAnswerRef = useRef<((answer: string) => void) | null>(null);
 
   // Monitor browser fullscreen state changes
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (phase === 'secure-workspace') {
+      if (phase === 'secure-workspace' && isScreenShareActive && isFullscreenEnabled) {
         const isCurrentlyFull = !!document.fullscreenElement;
         // If not in fullscreen, flag it as a violation
         setIsFullscreenViolation(!isCurrentlyFull);
@@ -30,12 +46,42 @@ export default function Home() {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [phase]);
+  }, [phase, isScreenShareActive, isFullscreenEnabled]);
+
+  // Handle successful login
+  const handleLoginSuccess = (data: {
+    candidateName: string;
+    examId: string;
+    examType: 'coding' | 'mcq';
+    examTitle: string;
+    examDescription?: string;
+    starterCode?: string;
+    mcqQuestions?: any[];
+    cameraEnabled?: boolean;
+    fullscreenEnabled?: boolean;
+  }) => {
+    setCandidateName(data.candidateName);
+    setExamId(data.examId);
+    setExamType(data.examType);
+    setExamTitle(data.examTitle);
+    setExamDescription(data.examDescription || '');
+    setStarterCode(data.starterCode || '');
+    setMcqQuestions(data.mcqQuestions || []);
+    setIsCameraEnabled(data.cameraEnabled !== false);
+    setIsFullscreenEnabled(data.fullscreenEnabled !== false);
+    setPhase('preflight');
+  };
 
   // Request fullscreen and advance state
   const handleEnterSecureRoom = (photoBase64: string) => {
     setVerificationPhoto(photoBase64);
     
+    if (!isFullscreenEnabled) {
+      setPhase('secure-workspace');
+      setIsFullscreenViolation(false);
+      return;
+    }
+
     // Request fullscreen using browser-native Fullscreen API
     const element = document.documentElement;
     if (element.requestFullscreen) {
@@ -57,6 +103,7 @@ export default function Home() {
 
   // Re-enable secure fullscreen session
   const resumeFullscreenSession = () => {
+    if (!isFullscreenEnabled) return;
     const element = document.documentElement;
     if (element.requestFullscreen) {
       element.requestFullscreen()
@@ -84,15 +131,36 @@ export default function Home() {
   // Callback when AI intervention response is submitted
   const handleAIInterventionSubmit = (justification: string) => {
     setJustifications((prev) => [...prev, justification]);
-    setIsAIInterventionOpen(false);
+    if (submitAnswerRef.current) {
+      submitAnswerRef.current(justification);
+    } else {
+      setIsAIInterventionOpen(false);
+    }
+  };
+
+  // Callback when candidate submits the exam
+  const handleExamSubmitted = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(err => console.error("Error exiting fullscreen on submit:", err));
+    }
+    setPhase('completed');
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
       
+      {/* 0. Candidate Login Entry State */}
+      {phase === 'login' && (
+        <CandidateLogin onLoginSuccess={handleLoginSuccess} />
+      )}
+
       {/* 1. Preflight Verification State */}
       {phase === 'preflight' && (
-        <PreFlightGate onEnterSecureRoom={handleEnterSecureRoom} />
+        <PreFlightGate 
+          onEnterSecureRoom={handleEnterSecureRoom} 
+          cameraEnabled={isCameraEnabled}
+          fullscreenEnabled={isFullscreenEnabled}
+        />
       )}
 
       {/* 2. Active Secure Workspace State */}
@@ -100,13 +168,28 @@ export default function Home() {
         <>
           <SecureWorkspace 
             photoBase64={verificationPhoto}
-            onTriggerIntervention={() => setIsAIInterventionOpen(true)}
+            examType={examType}
+            examTitle={examTitle}
+            examDescription={examDescription}
+            starterCode={starterCode}
+            mcqQuestions={mcqQuestions}
+            cameraEnabled={isCameraEnabled}
+            fullscreenEnabled={isFullscreenEnabled}
+            onScreenShareActiveChange={setIsScreenShareActive}
+            onTriggerIntervention={(question) => {
+              setAiQuestion(question);
+              setIsAIInterventionOpen(true);
+            }}
+            onReleaseIntervention={() => setIsAIInterventionOpen(false)}
             onViolationOccurred={handleViolationOccurred}
+            onSubmitAnswerRef={submitAnswerRef}
+            onExamSubmitted={handleExamSubmitted}
           />
-
+          
           {/* AI Interruption Overlay Modal */}
           <AIInterventionModal 
             isOpen={isAIInterventionOpen}
+            question={aiQuestion}
             onSubmit={handleAIInterventionSubmit}
           />
         </>
@@ -192,6 +275,67 @@ export default function Home() {
             <p className="text-[11px] text-slate-500">
               If you believe this was an error, contact your recruitment supervisor or institution system administrator.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Exam Completed Receipt State */}
+      {phase === 'completed' && (
+        <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+          <div className="absolute top-[10%] w-[40%] h-[40%] bg-emerald-900/10 rounded-full blur-[100px] pointer-events-none" />
+          
+          <div className="max-w-md w-full bg-slate-900 border border-emerald-900/30 rounded-3xl p-8 md:p-10 shadow-2xl space-y-6 relative z-10">
+            <div className="h-20 w-20 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto animate-bounce">
+              <ShieldCheck className="h-10 w-10" />
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-white tracking-tight">Exam Submitted Successfully</h1>
+              <p className="text-sm text-emerald-400 font-medium">Session Finalized & Integrity Audited</p>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto pt-2">
+                Thank you, <span className="text-white font-semibold">{candidateName}</span>. Your exam answers and security proctor logs have been securely packaged and transmitted to the recruiter panel.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 text-left text-xs space-y-3.5 text-slate-400">
+              <h4 className="font-semibold text-slate-200 uppercase tracking-wider">Submission Receipt</h4>
+              <div className="space-y-2 font-mono text-[11px]">
+                <div className="flex justify-between border-b border-slate-900 pb-1.5">
+                  <span>Exam ID:</span>
+                  <span className="text-violet-400 font-semibold">{examId}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-900 pb-1.5">
+                  <span>Exam Name:</span>
+                  <span className="text-slate-350">{examTitle}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-900 pb-1.5">
+                  <span>Exam Type:</span>
+                  <span className="text-slate-350 uppercase font-bold">{examType}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-900 pb-1.5">
+                  <span>Total Infractions:</span>
+                  <span className={violationsCount > 0 ? 'text-amber-500 font-bold' : 'text-emerald-400 font-bold'}>
+                    {violationsCount} Flags
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Proctoring Status:</span>
+                  <span className="text-emerald-400 font-bold">TRANSMITTED</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setPhase('login');
+                setVerificationPhoto(null);
+                setViolationsCount(0);
+                setJustifications([]);
+              }}
+              className="w-full py-3 bg-slate-950 border border-slate-850 hover:border-slate-750 text-slate-300 font-semibold rounded-xl text-xs transition active:scale-97 cursor-pointer"
+            >
+              Return to Entrance Gate
+            </button>
           </div>
         </div>
       )}

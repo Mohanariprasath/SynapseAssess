@@ -5,15 +5,21 @@ import { Camera, Mic, Play, RefreshCw, AlertTriangle, ShieldCheck, CheckCircle2,
 
 interface PreFlightGateProps {
   onEnterSecureRoom: (photoBase64: string) => void;
+  cameraEnabled?: boolean;
+  fullscreenEnabled?: boolean;
 }
 
 type DeviceStatus = 'idle' | 'checking' | 'success' | 'failed';
 
-export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps) {
-  const [cameraStatus, setCameraStatus] = useState<DeviceStatus>('idle');
+export default function PreFlightGate({ 
+  onEnterSecureRoom,
+  cameraEnabled = true,
+  fullscreenEnabled = true
+}: PreFlightGateProps) {
+  const [cameraStatus, setCameraStatus] = useState<DeviceStatus>(cameraEnabled ? 'idle' : 'success');
   const [micStatus, setMicStatus] = useState<DeviceStatus>('idle');
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(cameraEnabled ? null : 'CAMERA_DISABLED');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -21,28 +27,32 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
   // Initialize and check hardware devices
   const checkHardware = async () => {
     setErrorMsg(null);
-    setCameraStatus('checking');
+    if (cameraEnabled) {
+      setCameraStatus('checking');
+    }
     setMicStatus('checking');
 
     let videoStream: MediaStream | null = null;
     let audioStream: MediaStream | null = null;
-    let cameraOk = false;
+    let cameraOk = !cameraEnabled;
     let micOk = false;
 
     // Check camera
-    try {
-      videoStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 }
-      });
-      cameraOk = true;
-      setCameraStatus('success');
-      setStream(videoStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = videoStream;
+    if (cameraEnabled) {
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 }
+        });
+        cameraOk = true;
+        setCameraStatus('success');
+        setStream(videoStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = videoStream;
+        }
+      } catch (err) {
+        console.error("Camera check error:", err);
+        setCameraStatus('failed');
       }
-    } catch (err) {
-      console.error("Camera check error:", err);
-      setCameraStatus('failed');
     }
 
     // Check microphone
@@ -58,7 +68,7 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
     }
 
     if (!cameraOk || !micOk) {
-      setErrorMsg("Failed to access camera or microphone. Please enable permissions in your browser settings and try again.");
+      setErrorMsg(`Failed to access ${!cameraOk ? 'camera or ' : ''}microphone. Please enable permissions in your browser settings and try again.`);
     }
   };
 
@@ -151,40 +161,42 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
             
             <div className="space-y-3">
               {/* Camera Status */}
-              <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-800/60 rounded-xl">
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${
-                    cameraStatus === 'success' ? 'bg-emerald-950/40 text-emerald-400' :
-                    cameraStatus === 'failed' ? 'bg-rose-950/40 text-rose-400' : 'bg-slate-800/50 text-slate-400'
-                  }`}>
-                    <Camera className="h-5 w-5" />
+              {cameraEnabled && (
+                <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-800/60 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-lg ${
+                      cameraStatus === 'success' ? 'bg-emerald-950/40 text-emerald-400' :
+                      cameraStatus === 'failed' ? 'bg-rose-950/40 text-rose-400' : 'bg-slate-800/50 text-slate-400'
+                    }`}>
+                      <Camera className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-200">Video Surveillance Check</h4>
+                      <p className="text-xs text-slate-400">Integrated Web Camera</p>
+                    </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-slate-200">Video Surveillance Check</h4>
-                    <p className="text-xs text-slate-400">Integrated Web Camera</p>
+                    {cameraStatus === 'checking' && (
+                      <RefreshCw className="h-4 w-4 text-violet-400 animate-spin" />
+                    )}
+                    {cameraStatus === 'success' && (
+                      <span className="flex items-center space-x-1.5 text-xs text-emerald-400 font-medium px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Ready</span>
+                      </span>
+                    )}
+                    {cameraStatus === 'failed' && (
+                      <span className="flex items-center space-x-1.5 text-xs text-rose-400 font-medium px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full">
+                        <XCircle className="h-3.5 w-3.5" />
+                        <span>Failed</span>
+                      </span>
+                    )}
+                    {cameraStatus === 'idle' && (
+                      <span className="text-xs text-slate-500 px-2 py-1">Pending</span>
+                    )}
                   </div>
                 </div>
-                <div>
-                  {cameraStatus === 'checking' && (
-                    <RefreshCw className="h-4 w-4 text-violet-400 animate-spin" />
-                  )}
-                  {cameraStatus === 'success' && (
-                    <span className="flex items-center space-x-1.5 text-xs text-emerald-400 font-medium px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Ready</span>
-                    </span>
-                  )}
-                  {cameraStatus === 'failed' && (
-                    <span className="flex items-center space-x-1.5 text-xs text-rose-400 font-medium px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full">
-                      <XCircle className="h-3.5 w-3.5" />
-                      <span>Failed</span>
-                    </span>
-                  )}
-                  {cameraStatus === 'idle' && (
-                    <span className="text-xs text-slate-500 px-2 py-1">Pending</span>
-                  )}
-                </div>
-              </div>
+              )}
 
               {/* Microphone Status */}
               <div className="flex items-center justify-between p-3.5 bg-slate-950/40 border border-slate-800/60 rounded-xl">
@@ -230,31 +242,43 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
               </div>
             )}
 
-            <button
-              onClick={checkHardware}
-              className="w-full flex items-center justify-center space-x-2 py-2.5 border border-slate-800 hover:border-slate-700 bg-slate-950/50 hover:bg-slate-900 rounded-xl transition text-xs font-medium text-slate-300 active:scale-98"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Retry Device Hardware Check</span>
-            </button>
+            {cameraEnabled && (
+              <button
+                onClick={checkHardware}
+                className="w-full flex items-center justify-center space-x-2 py-2.5 border border-slate-800 hover:border-slate-700 bg-slate-950/50 hover:bg-slate-900 rounded-xl transition text-xs font-medium text-slate-300 active:scale-98"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Retry Device Hardware Check</span>
+              </button>
+            )}
           </div>
 
           {/* Secure Environment Checklist Card */}
           <div className="bg-slate-900/30 border border-slate-800/80 rounded-2xl p-5 space-y-3.5">
             <h3 className="text-sm font-semibold text-slate-300">Rules & Environment Protocols</h3>
             <ul className="text-xs text-slate-400 space-y-2.5">
-              <li className="flex items-start space-x-2">
-                <span className="h-1.5 w-1.5 bg-violet-500 rounded-full mt-1.5 shrink-0" />
-                <span><strong>Fullscreen Enforcement:</strong> Exiting fullscreen at any point triggers a lock event that restricts exam page access.</span>
-              </li>
+              {fullscreenEnabled && (
+                <li className="flex items-start space-x-2">
+                  <span className="h-1.5 w-1.5 bg-violet-500 rounded-full mt-1.5 shrink-0" />
+                  <span><strong>Fullscreen Enforcement:</strong> Exiting fullscreen at any point triggers a lock event that restricts exam page access.</span>
+                </li>
+              )}
               <li className="flex items-start space-x-2">
                 <span className="h-1.5 w-1.5 bg-violet-500 rounded-full mt-1.5 shrink-0" />
                 <span><strong>Tab & Focus Tracking:</strong> All page unfocus/blur actions are recorded and count towards automatic session flagging.</span>
               </li>
-              <li className="flex items-start space-x-2">
-                <span className="h-1.5 w-1.5 bg-violet-500 rounded-full mt-1.5 shrink-0" />
-                <span><strong>Surveillance Stream:</strong> Video stream is analyzed client-side for head pose alignment (proctoring validation).</span>
-              </li>
+              {cameraEnabled && (
+                <li className="flex items-start space-x-2">
+                  <span className="h-1.5 w-1.5 bg-violet-500 rounded-full mt-1.5 shrink-0" />
+                  <span><strong>Surveillance Stream:</strong> Video stream is analyzed client-side for head pose alignment (proctoring validation).</span>
+                </li>
+              )}
+              {!cameraEnabled && (
+                <li className="flex items-start space-x-2">
+                  <span className="h-1.5 w-1.5 bg-indigo-500/40 rounded-full mt-1.5 shrink-0" />
+                  <span className="text-slate-400"><strong>Camera Surveillance:</strong> Disabled by recruiter. No video monitoring active for this session.</span>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -267,7 +291,13 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Live Web Camera Viewport */}
               <div className="relative aspect-video md:aspect-square bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex items-center justify-center group shadow-inner">
-                {cameraStatus === 'success' && !photo && (
+                {!cameraEnabled ? (
+                  <div className="text-center p-4 space-y-2">
+                    <Camera className="h-10 w-10 text-slate-600 mx-auto" />
+                    <p className="text-xs text-slate-450 font-semibold uppercase tracking-wider">Webcam Proctoring Off</p>
+                    <p className="text-[10px] text-slate-500 max-w-[180px] mx-auto leading-relaxed">Verification photo capture is not required for this exam configuration.</p>
+                  </div>
+                ) : cameraStatus === 'success' && !photo ? (
                   <>
                     <video
                       ref={videoRef}
@@ -285,14 +315,12 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
                       <span className="text-[10px] uppercase font-mono tracking-widest text-violet-400/50 px-2 py-0.5 bg-slate-950/80 border border-slate-800 rounded-md">Live Stream</span>
                     </div>
                   </>
-                )}
-                {cameraStatus !== 'success' && (
+                ) : cameraStatus !== 'success' ? (
                   <div className="text-center p-4">
                     <Camera className="h-10 w-10 text-slate-600 mx-auto mb-2 animate-pulse" />
                     <p className="text-xs text-slate-500">Camera feed unavailable</p>
                   </div>
-                )}
-                {photo && (
+                ) : photo ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/90 text-center p-4">
                     <div className="space-y-2">
                       <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto" />
@@ -310,12 +338,24 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
                       </button>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Saved Photo Frame / Preview */}
               <div className="relative aspect-video md:aspect-square bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-4 text-center">
-                {photo ? (
+                {!cameraEnabled ? (
+                  <div className="space-y-3">
+                    <div className="h-12 w-12 rounded-full border border-slate-800/80 bg-slate-900/60 flex items-center justify-center mx-auto">
+                      <ShieldCheck className="h-6 w-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-350">Photo Gate Bypassed</h4>
+                      <p className="text-[11px] text-slate-550 leading-relaxed max-w-[200px] mx-auto mt-1">
+                        Metadata photo snap is automatically waived for this session.
+                      </p>
+                    </div>
+                  </div>
+                ) : photo ? (
                   <div className="relative w-full h-full flex flex-col justify-between">
                     <div className="relative flex-1 w-full bg-slate-900 border border-slate-800 rounded-lg overflow-hidden mb-3">
                       <img
@@ -336,7 +376,7 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
                     </div>
                     <div>
                       <h4 className="text-xs font-semibold text-slate-300">No Photo Captured Yet</h4>
-                      <p className="text-[11px] text-slate-500 leading-relaxed max-w-[200px] mx-auto mt-1">
+                      <p className="text-[11px] text-slate-550 leading-relaxed max-w-[200px] mx-auto mt-1">
                         Capture a face photo to link with your exam metadata.
                       </p>
                     </div>
@@ -346,16 +386,18 @@ export default function PreFlightGate({ onEnterSecureRoom }: PreFlightGateProps)
             </div>
 
             {/* Action Trigger Row */}
-            <div className="mt-4 flex items-center justify-end space-x-3">
-              <button
-                disabled={cameraStatus !== 'success'}
-                onClick={captureSnapshot}
-                className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-55 disabled:hover:bg-slate-800 text-slate-200 border border-slate-700 px-4 py-2 rounded-xl transition text-xs font-medium active:scale-98"
-              >
-                <Camera className="h-4 w-4" />
-                <span>Capture Verification Snapshot</span>
-              </button>
-            </div>
+            {cameraEnabled && (
+              <div className="mt-4 flex items-center justify-end space-x-3">
+                <button
+                  disabled={cameraStatus !== 'success'}
+                  onClick={captureSnapshot}
+                  className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-55 disabled:hover:bg-slate-800 text-slate-200 border border-slate-700 px-4 py-2 rounded-xl transition text-xs font-medium active:scale-98"
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Capture Verification Snapshot</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Secure Entry Action Gate */}

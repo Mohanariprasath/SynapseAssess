@@ -5,10 +5,11 @@ import { Sparkles, Send, BrainCircuit, User, AlertCircle, Eye } from 'lucide-rea
 
 interface AIInterventionModalProps {
   isOpen: boolean;
+  question: string;
   onSubmit: (justification: string) => void;
 }
 
-export default function AIInterventionModal({ isOpen, onSubmit }: AIInterventionModalProps) {
+export default function AIInterventionModal({ isOpen, question, onSubmit }: AIInterventionModalProps) {
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -107,7 +108,7 @@ export default function AIInterventionModal({ isOpen, onSubmit }: AIIntervention
             <div className="space-y-3">
               <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Intervention Question</span>
               <p className="text-sm text-slate-200 leading-relaxed font-sans">
-                "We noticed you implemented a streamlined mathematical approach instead of an iterative calculation. Can you clarify the architectural trade-offs of this decision, particularly regarding stack memory usage and performance overhead?"
+                {question || "We noticed you implemented a streamlined mathematical approach instead of an iterative calculation. Can you clarify the architectural trade-offs of this decision, particularly regarding stack memory usage and performance overhead?"}
               </p>
             </div>
           </div>

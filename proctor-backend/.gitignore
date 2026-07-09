@@ -14,3 +14,7 @@ recordings/
 
 # Next.js / dev server logs
 *.log
+
+# Sensitive environmental credentials
+.env
+.env.*
