@@ -2,3 +2,4 @@ Telemetry Log entry 0 - refactor: optimize face mesh socket payload format at 20
 Telemetry Log entry 1 - perf: debouncing telemetry events throttling at 2026-07-09 14:22:48
 Telemetry Log entry 2 - fix: adjust camera checking interval constraints at 2026-07-09 14:22:48
 Telemetry Log entry 3 - chore: update proctor dependency references at 2026-07-09 14:22:48
+Telemetry Log entry 4 - docs: add setup parameters documentation at 2026-07-09 14:22:48
