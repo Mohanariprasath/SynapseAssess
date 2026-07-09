@@ -1,1 +1,2 @@
 Telemetry Log entry 0 - refactor: optimize face mesh socket payload format at 2026-07-09 14:22:47
+Telemetry Log entry 1 - perf: debouncing telemetry events throttling at 2026-07-09 14:22:48
