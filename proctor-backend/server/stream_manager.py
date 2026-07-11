@@ -11,6 +11,7 @@ from .diff_analyzer import analyze_code_diff, clear_session_diff
 from .ai_orchestrator import generate_interview_challenge
 from .grading_engine import evaluate_response
 from .metrics_aggregator import calculate_session_metrics
+from .config import MAX_WARNINGS_THRESHOLD
 
 # Configure logger
 logging.basicConfig(level=logging.INFO)
@@ -157,7 +158,7 @@ async def handle_security_anomaly(sid: str, data: Dict[str, Any]) -> None:
     )
 
     # Trigger automatic warning callback broadcast to student client if threshold exceeded
-    if current_warnings >= 3:
+    if current_warnings >= MAX_WARNINGS_THRESHOLD:
         logger.error(f"[Telemetry] Security threshold exceeded for {sid}. Disqualifying candidate.")
         await sio.emit("session_disqualified", {"warnings": current_warnings}, room=sid)
 
@@ -203,7 +204,7 @@ async def handle_code_update(sid: str, data: Dict[str, Any]) -> None:
             logger.error(f"[Socket] Failed to generate or emit AI challenge to {sid}: {err}")
             
         # Check overall threshold bounds
-        if current_warnings >= 3:
+        if current_warnings >= MAX_WARNINGS_THRESHOLD:
             logger.error(f"[Telemetry] Security threshold exceeded for {sid}. Disqualifying candidate.")
             await sio.emit("session_disqualified", {"warnings": current_warnings}, room=sid)
     else:
