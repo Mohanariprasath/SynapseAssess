@@ -20,3 +20,13 @@ if os.path.exists(env_path):
         logger.info("[Core] Local .env environment configurations verified and loaded.")
     except Exception as err:
         logger.error(f"[Core] Error reading local .env file: {err}")
+
+# Validate loaded configuration
+gemini_key = os.environ.get("GEMINI_API_KEY")
+if not gemini_key:
+    logger.warning("[Core] WARNING: GEMINI_API_KEY is not set. Real-time AI grading and questions will run in fallback mock mode.")
+elif len(gemini_key) < 10:
+    logger.warning("[Core] WARNING: GEMINI_API_KEY appears too short to be valid. Please inspect your configuration.")
+else:
+    logger.info("[Core] Environment validated: GEMINI_API_KEY is present.")
+
