@@ -165,46 +165,84 @@ async def handle_security_anomaly(sid: str, data: Dict[str, Any]) -> None:
 @sio.on("code_update")
 async def handle_code_update(sid: str, data: Dict[str, Any]) -> None:
     """
-    Ingests debounced code buffer snapshots, runs differential analysis,
-    and triggers AI proctored challenges upon paste anomalies.
+    Ingests debounced code buffer snapshots, statefully tracks coding progress,
+    and triggers AI proctored challenges (Initial Strategy, Intermediate Checks, and copy-paste).
     """
     if sid not in session_ledger:
         return
         
-    session_ledger[sid]["last_received_timestamp"] = int(time.time() * 1000)
+    session = session_ledger[sid]
+    session["last_received_timestamp"] = int(time.time() * 1000)
     code = data.get("code", "")
     code_length = len(code)
     
-    # Analyze typing speed and character changes statefully
-    is_anomaly, infraction_type = analyze_code_diff(sid, code)
-    
-    if is_anomaly:
-        timestamp = int(time.time() * 1000)
-        session_ledger[sid]["warnings_count"] += 1
-        session_ledger[sid]["anomalies"].append({
-            "type": infraction_type,
-            "timestamp": timestamp,
-            "details": f"Typing analysis detected: {infraction_type}"
-        })
+    # Initialize state fields if not present (defensively)
+    if "questions_asked_count" not in session:
+        session["questions_asked_count"] = 0
+        session["last_question_time"] = time.time()
+        session["last_question_code_len"] = 0
+
+    current_time = time.time()
+    trigger_intervention = False
+    intervention_type = ""
+    ai_question = ""
+
+    # 1. INITIAL STRATEGY QUESTION:
+    # Trigger when user starts writing code (e.g. exceeds 50 characters) and no questions have been asked yet.
+    if session["questions_asked_count"] == 0 and code_length >= 50:
+        trigger_intervention = True
+        intervention_type = "INITIAL_STRATEGY"
+        ai_question = (
+            "Before writing your core algorithm, please clarify: How do you plan to solve this challenge? "
+            "What algorithmic strategy, data structures, and runtime time complexity bounds are you targeting?"
+        )
+
+    # 2. INTERMEDIATE REVIEW QUESTION:
+    # Trigger when user has written significant new code (e.g., +150 chars since last question)
+    # AND at least 60 seconds have elapsed since the last question.
+    elif session["questions_asked_count"] > 0 and (code_length - session["last_question_code_len"]) >= 150 and (current_time - session["last_question_time"]) >= 60.0:
+        trigger_intervention = True
+        intervention_type = "INTERMEDIATE_REVIEW"
         
-        current_warnings = session_ledger[sid]["warnings_count"]
+    # 3. TYPING ANOMALY / COPY-PASTE CHECK (Fallback/Security intervention):
+    else:
+        is_anomaly, infraction_type = analyze_code_diff(sid, code)
+        if is_anomaly:
+            session["warnings_count"] += 1
+            session["anomalies"].append({
+                "type": infraction_type,
+                "timestamp": int(current_time * 1000),
+                "details": f"Typing analysis detected: {infraction_type}"
+            })
+            trigger_intervention = True
+            intervention_type = infraction_type
+
+    if trigger_intervention:
+        # Increment question count
+        session["questions_asked_count"] += 1
+        session["last_question_time"] = current_time
+        session["last_question_code_len"] = code_length
+        
+        current_warnings = session["warnings_count"]
         logger.warn(
-            f"[Telemetry] AI INTERVENTION | SID: {sid} | Anomaly: {infraction_type} | Warnings: {current_warnings}/3"
+            f"[Telemetry] AI INTERVENTION | SID: {sid} | Type: {intervention_type} | Warnings: {current_warnings}/{MAX_WARNINGS_THRESHOLD}"
         )
         
-        # Invoke low-latency Gemini orchestrator asynchronously
-        language = data.get("language", "javascript")
-        try:
-            ai_question = await generate_interview_challenge(code, language)
-            
-            # Broadcast high-priority intervention lock triggers to client
-            logger.info(f"[Socket] Broadcasting intervention overlay triggers to client: {sid}")
-            await sio.emit("ai_intervention_trigger", {"question": ai_question}, room=sid)
-        except Exception as err:
-            logger.error(f"[Socket] Failed to generate or emit AI challenge to {sid}: {err}")
-            
-        # Check overall threshold bounds
-        if current_warnings >= MAX_WARNINGS_THRESHOLD:
+        # If we don't have a pre-defined question, generate it using Gemini
+        if not ai_question:
+            language = data.get("language", "javascript")
+            try:
+                ai_question = await generate_interview_challenge(code, language)
+            except Exception as err:
+                logger.error(f"[Socket] Failed to generate AI challenge: {err}")
+                ai_question = "Explain your intermediate implementation choices and how your code handles boundary overflows."
+                
+        # Broadcast intervention triggers to client
+        logger.info(f"[Socket] Emitting intervention trigger to {sid}: {ai_question}")
+        await sio.emit("ai_intervention_trigger", {"question": ai_question}, room=sid)
+
+        # Check overall threshold bounds (only for security infraction types, not normal conceptual check-ins)
+        if intervention_type in ["PASTE_ANOMALY", "MACRO_INSERTION"] and current_warnings >= MAX_WARNINGS_THRESHOLD:
             logger.error(f"[Telemetry] Security threshold exceeded for {sid}. Disqualifying candidate.")
             await sio.emit("session_disqualified", {"warnings": current_warnings}, room=sid)
     else:
