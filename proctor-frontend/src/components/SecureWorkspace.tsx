@@ -20,6 +20,7 @@ import {
 
 interface SecureWorkspaceProps {
   photoBase64: string;
+  examId?: string;
   examType: 'coding' | 'mcq';
   examTitle: string;
   examDescription?: string;
@@ -37,6 +38,7 @@ interface SecureWorkspaceProps {
 
 export default function SecureWorkspace({ 
   photoBase64, 
+  examId,
   examType,
   examTitle,
   examDescription,
@@ -237,7 +239,7 @@ export default function SecureWorkspace({
           <div className="h-2.5 w-2.5 bg-emerald-500 rounded-full animate-ping" />
           <h2 className="text-sm font-semibold tracking-tight text-white">Live Proctoring Room</h2>
           <span className="h-4 w-px bg-slate-800" />
-          <span className="text-xs text-slate-400 font-mono">ID: exam-session-982</span>
+          <span className="text-xs text-slate-400 font-mono">ID: {examId || 'exam-session-982'}</span>
         </div>
 
         {/* Sync Indicator & Violation Counter */}

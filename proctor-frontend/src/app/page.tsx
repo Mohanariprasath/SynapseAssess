@@ -168,6 +168,7 @@ export default function Home() {
         <>
           <SecureWorkspace 
             photoBase64={verificationPhoto}
+            examId={examId}
             examType={examType}
             examTitle={examTitle}
             examDescription={examDescription}
