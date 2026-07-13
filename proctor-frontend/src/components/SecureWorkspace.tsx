@@ -82,6 +82,8 @@ interface SecureWorkspaceProps {
   mcqQuestions?: any[];
   cameraEnabled?: boolean;
   fullscreenEnabled?: boolean;
+  hiddenInput?: string;
+  hiddenOutput?: string;
   onTriggerIntervention: (question: string) => void;
   onReleaseIntervention: () => void;
   onViolationOccurred: (count: number) => void;
@@ -100,6 +102,8 @@ export default function SecureWorkspace({
   mcqQuestions,
   cameraEnabled = true,
   fullscreenEnabled = true,
+  hiddenInput,
+  hiddenOutput,
   onTriggerIntervention,
   onReleaseIntervention,
   onViolationOccurred,
@@ -235,7 +239,80 @@ export default function SecureWorkspace({
   };
 
   const handleRunCode = () => {
-    setOutput("Executing test cases...\n> node index.js\n\n[Test Case 1] Input: 5 -> Output: 10 (PASSED)\n[Test Case 2] Input: 12 -> Output: 24 (PASSED)\n\nAll client-side verification tests completed successfully.");
+    setOutput("Executing test cases...\n> node index.js\n\n");
+    
+    try {
+      // Append solve wrapper
+      const userCodeWrapper = `
+        ${code}
+        return solve(input);
+      `;
+      // Create executable Function context
+      const runner = new Function("input", userCodeWrapper);
+      
+      // Public Test Case 1: Input: 5 -> Output: 10
+      const test1Input = 5;
+      const test1Expected = 10;
+      let test1Passed = false;
+      let test1Result: any = null;
+      try {
+        test1Result = runner(test1Input);
+        if (test1Result === test1Expected) {
+          test1Passed = true;
+        }
+      } catch (err: any) {
+        test1Result = `Error: ${err.message}`;
+      }
+
+      // Public Test Case 2: Input: 12 -> Output: 24
+      const test2Input = 12;
+      const test2Expected = 24;
+      let test2Passed = false;
+      let test2Result: any = null;
+      try {
+        test2Result = runner(test2Input);
+        if (test2Result === test2Expected) {
+          test2Passed = true;
+        }
+      } catch (err: any) {
+        test2Result = `Error: ${err.message}`;
+      }
+
+      // Hidden Test Case evaluation
+      // Parse inputs defensively (converting numeric strings if possible)
+      const parseValue = (val: string | undefined, defaultVal: number) => {
+        if (val === undefined || val === '') return defaultVal;
+        return isNaN(Number(val)) ? val : Number(val);
+      };
+
+      const hidInputRaw = parseValue(hiddenInput, 100);
+      const hidOutputExpected = parseValue(hiddenOutput, 200);
+      
+      let hiddenPassed = false;
+      let hiddenResult: any = null;
+      try {
+        hiddenResult = runner(hidInputRaw);
+        if (String(hiddenResult) === String(hidOutputExpected)) {
+          hiddenPassed = true;
+        }
+      } catch (err: any) {
+        hiddenResult = `Error: ${err.message}`;
+      }
+
+      const outputText = `Executing test cases...
+> node index.js
+
+[Test Case 1] Input: ${test1Input} -> Expected: ${test1Expected}, Got: ${test1Result} (${test1Passed ? 'PASSED' : 'FAILED'})
+[Test Case 2] Input: ${test2Input} -> Expected: ${test2Expected}, Got: ${test2Result} (${test2Passed ? 'PASSED' : 'FAILED'})
+
+[Hidden Test Case] Verification: ${hiddenPassed ? 'PASSED (Evaluation Succeeded)' : 'FAILED (Evaluation Mismatch)'}
+
+All compilation checks completed. Code correctness: ${test1Passed && test2Passed && hiddenPassed ? '100% Correct' : 'Incomplete'}`;
+      
+      setOutput(outputText);
+    } catch (err: any) {
+      setOutput(`Compilation Error: ${err.message}\nMake sure your code defines the 'solve(input)' function.`);
+    }
   };
 
   const handleSelectOption = (qId: string, optIdx: number) => {

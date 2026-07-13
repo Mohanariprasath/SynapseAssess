@@ -19,6 +19,8 @@ export default function Home() {
   const [examDescription, setExamDescription] = useState<string>('');
   const [starterCode, setStarterCode] = useState<string>('');
   const [mcqQuestions, setMcqQuestions] = useState<any[]>([]);
+  const [hiddenInput, setHiddenInput] = useState<string>('100');
+  const [hiddenOutput, setHiddenOutput] = useState<string>('200');
 
   const [verificationPhoto, setVerificationPhoto] = useState<string | null>(null);
   const [isFullscreenViolation, setIsFullscreenViolation] = useState<boolean>(false);
@@ -59,6 +61,8 @@ export default function Home() {
     mcqQuestions?: any[];
     cameraEnabled?: boolean;
     fullscreenEnabled?: boolean;
+    hiddenInput?: string;
+    hiddenOutput?: string;
   }) => {
     setCandidateName(data.candidateName);
     setExamId(data.examId);
@@ -69,6 +73,8 @@ export default function Home() {
     setMcqQuestions(data.mcqQuestions || []);
     setIsCameraEnabled(data.cameraEnabled !== false);
     setIsFullscreenEnabled(data.fullscreenEnabled !== false);
+    setHiddenInput(data.hiddenInput || '100');
+    setHiddenOutput(data.hiddenOutput || '200');
     setPhase('preflight');
   };
 
@@ -176,6 +182,8 @@ export default function Home() {
             mcqQuestions={mcqQuestions}
             cameraEnabled={isCameraEnabled}
             fullscreenEnabled={isFullscreenEnabled}
+            hiddenInput={hiddenInput}
+            hiddenOutput={hiddenOutput}
             onScreenShareActiveChange={setIsScreenShareActive}
             onTriggerIntervention={(question) => {
               setAiQuestion(question);

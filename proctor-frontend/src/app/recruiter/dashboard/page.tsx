@@ -114,6 +114,8 @@ export default function RecruiterDashboard() {
   // Coding exam details
   const [newDescription, setNewDescription] = useState('');
   const [newStarterCode, setNewStarterCode] = useState('');
+  const [newHiddenInput, setNewHiddenInput] = useState('100');
+  const [newHiddenOutput, setNewHiddenOutput] = useState('200');
 
   // MCQ exam details (dynamic questions input)
   const [mcqQuestionsList, setMcqQuestionsList] = useState<any[]>([
@@ -144,7 +146,9 @@ export default function RecruiterDashboard() {
   return input * 2;
 }`,
             cameraEnabled: true,
-            fullscreenEnabled: true
+            fullscreenEnabled: true,
+            hiddenInput: '100',
+            hiddenOutput: '200'
           },
           {
             examId: 'EXAM-MCQ-505',
@@ -224,6 +228,8 @@ export default function RecruiterDashboard() {
     if (newExamType === 'coding') {
       newExamData.examDescription = newDescription.trim() || 'No description provided.';
       newExamData.starterCode = newStarterCode.trim() || `function solve(input) {\n  return input;\n}`;
+      newExamData.hiddenInput = newHiddenInput.trim() || '100';
+      newExamData.hiddenOutput = newHiddenOutput.trim() || '200';
     } else {
       const validQuestions = mcqQuestionsList.filter(q => q.question.trim());
       if (validQuestions.length === 0) {
@@ -248,6 +254,8 @@ export default function RecruiterDashboard() {
     setNewExamRole('');
     setNewDescription('');
     setNewStarterCode('');
+    setNewHiddenInput('100');
+    setNewHiddenOutput('200');
     setNewCameraEnabled(true);
     setNewFullscreenEnabled(true);
     setMcqQuestionsList([{ question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctIndex: 0 }]);
@@ -475,6 +483,28 @@ export default function RecruiterDashboard() {
                       onChange={(e) => setNewStarterCode(e.target.value)}
                       className="w-full h-28 bg-slate-950 border border-slate-850 focus:border-violet-500 focus:outline-none rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 placeholder-slate-700 transition resize-none"
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Hidden Test Case Input</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 100"
+                        value={newHiddenInput}
+                        onChange={(e) => setNewHiddenInput(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-violet-500 focus:outline-none rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Hidden Test Expected Output</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 200"
+                        value={newHiddenOutput}
+                        onChange={(e) => setNewHiddenOutput(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 focus:border-violet-500 focus:outline-none rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 transition"
+                      />
+                    </div>
                   </div>
                 </>
               ) : (
