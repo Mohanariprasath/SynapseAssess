@@ -25,7 +25,7 @@ export const DEFAULT_EXAMS = [
     examType: 'coding' as const,
     cameraEnabled: true,
     fullscreenEnabled: true,
-    examDescription: 'Implement a core multiplier function that takes an integer input, scales the stream throughput by a factor of two, and outputs the result. Ensure bounds checking matches typical IEEE-754 specifications.',
+    examDescription: '### Challenge Description\nImplement a core multiplier function that takes an integer input, scales the stream throughput by a factor of two, and outputs the result.\n\n### Input Specifications\n- `input`: An integer representing the raw stream throughput.\n\n### Output Specifications\n- Returns the throughput scaled by 2x.\n\n### Verification Examples\n- `solve(5)` => `10`\n- `solve(-3)` => `-6`\n\n### Architectural Notes\nEnsure bounds checking matches typical IEEE-754 specifications to prevent integer overflows.',
     starterCode: `function solve(input) {
   // Write your enterprise grade algorithm here
   console.log("Processing synapse data...");

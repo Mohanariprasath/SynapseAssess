@@ -18,6 +18,60 @@ import {
   Maximize2
 } from 'lucide-react';
 
+const renderInlineCode = (text: string) => {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded text-[11px] font-mono text-violet-300">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+};
+
+const renderStructuredDescription = (text: string) => {
+  if (!text) return <p className="text-xs text-slate-400 leading-relaxed">Complete all elements of the exam to submit.</p>;
+  
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-3">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('###')) {
+          return (
+            <h3 key={idx} className="text-[10px] font-bold text-violet-400 uppercase tracking-wider mt-4 border-b border-slate-900 pb-1">
+              {trimmed.replace(/^###\s*/, '')}
+            </h3>
+          );
+        } else if (trimmed.startsWith('##')) {
+          return (
+            <h2 key={idx} className="text-xs font-bold text-white mt-4 uppercase tracking-wider">
+              {trimmed.replace(/^##\s*/, '')}
+            </h2>
+          );
+        } else if (trimmed.startsWith('-')) {
+          const cleanText = trimmed.replace(/^-\s*/, '');
+          return (
+            <ul key={idx} className="list-disc pl-4 text-xs text-slate-400 space-y-1">
+              <li>{renderInlineCode(cleanText)}</li>
+            </ul>
+          );
+        } else if (trimmed) {
+          return (
+            <p key={idx} className="text-xs text-slate-400 leading-relaxed">
+              {renderInlineCode(line)}
+            </p>
+          );
+        }
+        return <div key={idx} className="h-1" />;
+      })}
+    </div>
+  );
+};
+
 interface SecureWorkspaceProps {
   photoBase64: string;
   examId?: string;
@@ -299,9 +353,9 @@ export default function SecureWorkspace({
                 {examType === 'mcq' ? 'MCQ Sheet' : 'Coding Challenge'}
               </span>
               <h1 className="text-lg font-bold text-white leading-tight">{examTitle}</h1>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {examDescription || 'Complete all elements of the exam to submit.'}
-              </p>
+              <div className="mt-2">
+                {renderStructuredDescription(examDescription || '')}
+              </div>
             </div>
 
             {examType === 'coding' && (
