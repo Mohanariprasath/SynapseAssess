@@ -27,6 +27,3 @@ The backend computes a dynamic candidate risk score based on:
 * Fullscreen departures
 * Look-away detections
 * Code paste/macro cadence anomalies
-
-
-
