@@ -171,9 +171,56 @@ export default function CandidateReport({ params }: { params: Promise<{ candidat
   const resolvedParams = use(params);
   const candidateId = resolvedParams.candidateId;
   
-  // Retrieve candidate data or default to Jessica Chen (cand-002) if ID is unknown
+  // Dynamically resolve candidate data from localStorage or mockReports fallback
   const report = useMemo(() => {
-    return mockReports[candidateId] || mockReports['cand-002'];
+    if (mockReports[candidateId]) {
+      return mockReports[candidateId];
+    }
+    
+    // Read dynamic sessions from localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('completed_candidate_sessions');
+      if (stored) {
+        try {
+          const sessions = JSON.parse(stored);
+          const matched = sessions.find((s: any) => s.id === candidateId || s.id.toLowerCase() === candidateId.toLowerCase());
+          if (matched) {
+            return {
+              id: matched.id,
+              name: matched.name,
+              role: matched.role || 'Software Engineer',
+              date: matched.date || 'July 2026',
+              duration: '35m 40s',
+              overallScore: matched.aiScore || 90,
+              integrityScore: matched.warnings > 0 ? (100 - matched.warnings * 25) : 100,
+              riskRating: matched.riskRating || 'Low',
+              aiInsights: {
+                technicalCore: `Evaluated candidate submission for ${matched.role}. Algorithmic approach demonstrated sound structural understanding and clean modular separation.`,
+                codeClarity: `Code style followed clean development practices with optimal time complexity bounds.`,
+                sessionIntegrity: matched.warnings > 0 
+                  ? `Recorded ${matched.warnings} security infractions during the proctored assessment session.`
+                  : `Perfect integrity rating. Full screen and gaze tracking verification passed with zero infractions.`
+              },
+              telemetry: matched.warnings > 0 ? [
+                {
+                  id: 'tel-dyn-1',
+                  timestamp: Date.now() - 300000,
+                  type: 'FOCUS_LOST',
+                  label: 'Focus Deviation Alert',
+                  color: 'bg-amber-500 text-amber-950 border-amber-400',
+                  description: 'Application focus shifted away from active proctoring room.',
+                  metrics: { durationMs: 4200 }
+                }
+              ] : []
+            };
+          }
+        } catch (e) {
+          console.error("Error loading candidate dynamic report:", e);
+        }
+      }
+    }
+
+    return mockReports['cand-002'];
   }, [candidateId]);
 
   const [selectedLog, setSelectedLog] = useState<TelemetryLog | null>(

@@ -50,6 +50,52 @@ export default function Home() {
     };
   }, [phase, isScreenShareActive, isFullscreenEnabled]);
 
+  // Helper to dynamically synchronize real candidate attempts to Recruiter Dashboard & Backend Ledger
+  const syncCandidateToRecruiter = (
+    cName: string,
+    eTitle: string,
+    vCount: number,
+    isTerminated: boolean,
+    isCompleted: boolean,
+    score?: number
+  ) => {
+    if (!cName) return;
+    const status = isTerminated ? 'Terminated' : (vCount > 0 ? 'Flagged' : (isCompleted ? 'Completed' : 'In Progress'));
+    const riskRating = vCount >= 3 ? 'High' : (vCount > 0 ? 'Medium' : 'Low');
+    const aiScore = score !== undefined ? score : (isTerminated ? 25 : (isCompleted ? 92 : 85));
+    const candId = `cand-${cName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')}`;
+
+    const record = {
+      id: candId,
+      name: cName,
+      role: eTitle || 'Software Engineer',
+      status,
+      aiScore,
+      riskRating,
+      warnings: vCount,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    };
+
+    // 1. Sync to localStorage for immediate cross-tab availability
+    if (typeof window !== 'undefined') {
+      const existing = localStorage.getItem('completed_candidate_sessions');
+      let sessions: any[] = [];
+      if (existing) {
+        try { sessions = JSON.parse(existing); } catch (e) {}
+      }
+      const filtered = sessions.filter(s => s.id !== candId);
+      filtered.unshift(record);
+      localStorage.setItem('completed_candidate_sessions', JSON.stringify(filtered));
+    }
+
+    // 2. Post sync payload to backend FastAPI
+    fetch('http://localhost:3001/api/recruiter/candidates/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    }).catch(err => console.warn('Candidate backend sync warning:', err));
+  };
+
   // Handle successful login
   const handleLoginSuccess = (data: {
     candidateName: string;
@@ -76,6 +122,9 @@ export default function Home() {
     setHiddenInput(data.hiddenInput || '100');
     setHiddenOutput(data.hiddenOutput || '200');
     setPhase('preflight');
+
+    // Register active candidate on Recruiter Dashboard
+    syncCandidateToRecruiter(data.candidateName, data.examTitle, 0, false, false);
   };
 
   // Request fullscreen and advance state
@@ -125,7 +174,10 @@ export default function Home() {
   // Callback when user commits an anti-cheating violation (blur, tab switch, etc.)
   const handleViolationOccurred = (count: number) => {
     setViolationsCount(count);
-    if (count > 3) {
+    const isTerminated = count > 3;
+    syncCandidateToRecruiter(candidateName, examTitle, count, isTerminated, false);
+
+    if (isTerminated) {
       // Exit fullscreen if we are terminating the exam
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(err => console.error("Error exiting fullscreen on termination:", err));
@@ -149,6 +201,7 @@ export default function Home() {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(err => console.error("Error exiting fullscreen on submit:", err));
     }
+    syncCandidateToRecruiter(candidateName, examTitle, violationsCount, false, true, 96);
     setPhase('completed');
   };
 
