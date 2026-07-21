@@ -99,6 +99,9 @@ export default function RecruiterDashboard() {
   const [riskFilter, setRiskFilter] = useState<'All' | 'Low' | 'Medium' | 'High'>('All');
   const [sortBy, setSortBy] = useState<'aiScore' | 'name' | 'date'>('aiScore');
 
+  // Dynamic candidate list state
+  const [candidates, setCandidates] = useState<CandidateRecord[]>(mockCandidates);
+
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<'candidates' | 'exams'>('candidates');
   const [exams, setExams] = useState<any[]>([]);
@@ -121,6 +124,53 @@ export default function RecruiterDashboard() {
   const [mcqQuestionsList, setMcqQuestionsList] = useState<any[]>([
     { question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctIndex: 0 }
   ]);
+
+  // Dynamically fetch candidate sessions from backend & merge with localStorage
+  useEffect(() => {
+    const fetchDynamicCandidates = async () => {
+      let merged = [...mockCandidates];
+
+      // Read locally saved sessions
+      if (typeof window !== 'undefined') {
+        const localSaved = localStorage.getItem('completed_candidate_sessions');
+        if (localSaved) {
+          try {
+            const parsed = JSON.parse(localSaved);
+            if (Array.isArray(parsed)) {
+              merged = [...parsed, ...merged];
+            }
+          } catch (e) {
+            console.error("Error loading local candidate sessions:", e);
+          }
+        }
+      }
+
+      // Fetch dynamic live backend sessions
+      try {
+        const res = await fetch('http://localhost:3001/api/recruiter/candidates');
+        if (res.ok) {
+          const apiCandidates = await res.json();
+          if (Array.isArray(apiCandidates) && apiCandidates.length > 0) {
+            // Deduplicate by ID
+            const apiMap = new Map();
+            apiCandidates.forEach((c: any) => apiMap.set(c.id, c));
+            merged.forEach((c: any) => {
+              if (!apiMap.has(c.id)) {
+                apiMap.set(c.id, c);
+              }
+            });
+            merged = Array.from(apiMap.values());
+          }
+        }
+      } catch (err) {
+        console.warn("Backend candidate query unavailable, using local dynamic roster:", err);
+      }
+
+      setCandidates(merged);
+    };
+
+    fetchDynamicCandidates();
+  }, []);
 
   // Synchronize active exams with localStorage on mount
   useEffect(() => {
@@ -271,19 +321,19 @@ export default function RecruiterDashboard() {
     localStorage.setItem('active_exams', JSON.stringify(updated));
   };
 
-  // Compute aggregation metrics
+  // Compute aggregation metrics dynamically based on current candidates state
   const stats = useMemo(() => {
-    const total = mockCandidates.length;
-    const flagged = mockCandidates.filter(c => c.status === 'Flagged' || c.status === 'Terminated').length;
-    const highRisk = mockCandidates.filter(c => c.riskRating === 'High').length;
-    const avgScore = Math.round(mockCandidates.reduce((acc, curr) => acc + curr.aiScore, 0) / total);
+    const total = candidates.length || 1;
+    const flagged = candidates.filter(c => c.status === 'Flagged' || c.status === 'Terminated').length;
+    const highRisk = candidates.filter(c => c.riskRating === 'High').length;
+    const avgScore = Math.round(candidates.reduce((acc, curr) => acc + curr.aiScore, 0) / total);
 
-    return { total, flagged, highRisk, avgScore };
-  }, []);
+    return { total: candidates.length, flagged, highRisk, avgScore };
+  }, [candidates]);
 
   // Filtered and sorted candidate list
   const filteredCandidates = useMemo(() => {
-    return mockCandidates
+    return candidates
       .filter(candidate => {
         const matchesSearch = candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                               candidate.role.toLowerCase().includes(searchTerm.toLowerCase());
@@ -295,7 +345,7 @@ export default function RecruiterDashboard() {
         if (sortBy === 'name') return a.name.localeCompare(b.name);
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [searchTerm, riskFilter, sortBy]);
+  }, [candidates, searchTerm, riskFilter, sortBy]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 md:p-12 relative overflow-hidden select-none">

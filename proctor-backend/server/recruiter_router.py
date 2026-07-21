@@ -12,6 +12,76 @@ recruiter_router = APIRouter(
     tags=["Recruiter Workspace Services"]
 )
 
+@recruiter_router.get("/candidates")
+async def get_all_candidates() -> List[Dict[str, Any]]:
+    """Retrieves all candidate records dynamically synthesized from session ledger."""
+    candidates_list = []
+    
+    for sid, state in session_ledger.items():
+        warnings = state.get("warnings_count", 0)
+        is_active = state.get("is_active_flag", True)
+        is_finalized = state.get("is_finalized", False)
+        
+        if warnings >= 3:
+            status = "Terminated"
+        elif warnings > 0:
+            status = "Flagged"
+        elif is_finalized or not is_active:
+            status = "Completed"
+        else:
+            status = "In Progress"
+
+        scores = state.get("conceptual_scores", [])
+        ai_score = round(sum(scores) / len(scores)) if scores else (90 if status == "Completed" else 75)
+        
+        risk_rating = state.get("risk_rating", "Low")
+        candidate_name = state.get("candidate_name", f"Candidate-{sid[:6]}")
+        role = state.get("role", "Software Engineer")
+        date_str = state.get("date", "Today")
+
+        candidates_list.append({
+            "id": sid,
+            "name": candidate_name,
+            "role": role,
+            "status": status,
+            "aiScore": ai_score,
+            "riskRating": risk_rating,
+            "warnings": warnings,
+            "date": date_str
+        })
+        
+    return candidates_list
+
+@recruiter_router.post("/candidates/sync")
+async def sync_candidate_record(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Dynamically registers or updates candidate session details into session ledger."""
+    sid = payload.get("id") or payload.get("sid") or f"cand-{len(session_ledger) + 1:03d}"
+    
+    if sid not in session_ledger:
+        session_ledger[sid] = {
+            "warnings_count": payload.get("warnings", 0),
+            "last_received_timestamp": 0,
+            "is_active_flag": False,
+            "candidate_name": payload.get("name", "Anonymous Candidate"),
+            "role": payload.get("role", "Software Engineer"),
+            "anomalies": payload.get("anomalies", []),
+            "conceptual_scores": [payload.get("aiScore", 85)],
+            "justification_summaries": [],
+            "risk_score": float(payload.get("warnings", 0) * 20),
+            "risk_rating": payload.get("riskRating", "Low"),
+            "is_finalized": True,
+            "date": payload.get("date", "July 2026")
+        }
+    else:
+        state = session_ledger[sid]
+        if "name" in payload: state["candidate_name"] = payload["name"]
+        if "role" in payload: state["role"] = payload["role"]
+        if "warnings" in payload: state["warnings_count"] = payload["warnings"]
+        if "riskRating" in payload: state["risk_rating"] = payload["riskRating"]
+        if "aiScore" in payload: state["conceptual_scores"] = [payload["aiScore"]]
+
+    return {"status": "synced", "id": sid}
+
 @recruiter_router.get("/sessions/{session_id}")
 async def get_session_details(session_id: str) -> Dict[str, Any]:
     """Retrieves full candidate state ledger aggregates, warning logs, and justifications."""
