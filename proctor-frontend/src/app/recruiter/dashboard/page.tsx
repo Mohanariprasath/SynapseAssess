@@ -31,68 +31,8 @@ interface CandidateRecord {
   date: string;
 }
 
-const mockCandidates: CandidateRecord[] = [
-  {
-    id: 'cand-001',
-    name: 'Alex Rivera',
-    role: 'Senior Frontend Engineer',
-    status: 'Completed',
-    aiScore: 94,
-    riskRating: 'Low',
-    warnings: 0,
-    date: 'July 2, 2026'
-  },
-  {
-    id: 'cand-002',
-    name: 'Jessica Chen',
-    role: 'React Tech Lead',
-    status: 'Flagged',
-    aiScore: 82,
-    riskRating: 'Medium',
-    warnings: 2,
-    date: 'July 1, 2026'
-  },
-  {
-    id: 'cand-003',
-    name: 'Marcus Vance',
-    role: 'Full Stack Architect',
-    status: 'Terminated',
-    aiScore: 31,
-    riskRating: 'High',
-    warnings: 4,
-    date: 'June 30, 2026'
-  },
-  {
-    id: 'cand-004',
-    name: 'Sarah Jenkins',
-    role: 'Frontend UI Developer',
-    status: 'Completed',
-    aiScore: 88,
-    riskRating: 'Low',
-    warnings: 0,
-    date: 'June 29, 2026'
-  },
-  {
-    id: 'cand-005',
-    name: 'David Kim',
-    role: 'Software Engineer II',
-    status: 'Flagged',
-    aiScore: 68,
-    riskRating: 'High',
-    warnings: 3,
-    date: 'June 28, 2026'
-  },
-  {
-    id: 'cand-006',
-    name: 'Emily Watson',
-    role: 'Mobile UI Engineer',
-    status: 'Completed',
-    aiScore: 97,
-    riskRating: 'Low',
-    warnings: 1,
-    date: 'June 27, 2026'
-  }
-];
+// Dynamic candidate roster container (starts clean and populates dynamically from real candidate sessions)
+const mockCandidates: CandidateRecord[] = [];
 
 export default function RecruiterDashboard() {
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -933,7 +873,7 @@ export default function RecruiterDashboard() {
                   ) : (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-500 text-xs">
-                        No candidate profiles found matching the filter selection.
+                        No active candidate sessions recorded. Candidates will automatically appear here in real time as they log in and take assessments.
                       </td>
                     </tr>
                   )}
