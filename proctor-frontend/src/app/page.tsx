@@ -88,12 +88,17 @@ export default function Home() {
       localStorage.setItem('completed_candidate_sessions', JSON.stringify(filtered));
     }
 
-    // 2. Post sync payload to backend FastAPI
+    // 2. Post sync payload to backend FastAPI with 2-second safety timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     fetch('http://localhost:3001/api/recruiter/candidates/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(record)
-    }).catch(err => console.warn('Candidate backend sync warning:', err));
+      body: JSON.stringify(record),
+      signal: controller.signal
+    })
+      .then(() => clearTimeout(timeoutId))
+      .catch(err => console.warn('Candidate backend sync warning:', err));
   };
 
   // Handle successful login

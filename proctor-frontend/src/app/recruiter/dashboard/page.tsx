@@ -85,9 +85,12 @@ export default function RecruiterDashboard() {
         }
       }
 
-      // Fetch dynamic live backend sessions
+      // Fetch dynamic live backend sessions with 2-second safety timeout
       try {
-        const res = await fetch('http://localhost:3001/api/recruiter/candidates');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch('http://localhost:3001/api/recruiter/candidates', { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const apiCandidates = await res.json();
           if (Array.isArray(apiCandidates) && apiCandidates.length > 0) {
