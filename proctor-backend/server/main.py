@@ -10,9 +10,11 @@ if parent_dir not in sys.path:
 
 from server.stream_manager import fastapi_app, socket_app
 from server.recruiter_router import recruiter_router
+from server.execution_router import execution_router
 
-# Mount recruiter router on the primary app canvas path
+# Mount routers on the primary app canvas path
 fastapi_app.include_router(recruiter_router)
+fastapi_app.include_router(execution_router)
 
 if __name__ == "__main__":
     # Start the ASGI server wrapper hosting FastAPI and python-socketio on port 3001

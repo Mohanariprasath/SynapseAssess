@@ -238,48 +238,81 @@ export default function SecureWorkspace({
     }, 2000);
   };
 
-  const handleRunCode = () => {
-    setOutput("Executing test cases...\n> node index.js\n\n");
+  const handleRunCode = async () => {
+    setOutput("Compiling & dispatching candidate code to backend evaluation sandbox...\n> POST http://localhost:3001/api/run-code\n\n");
     
     try {
-      // Append solve wrapper
+      const response = await fetch("http://localhost:3001/api/run-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code,
+          language: selectedLanguage,
+          exam_id: examId,
+          hidden_input: hiddenInput || "100",
+          hidden_output: hiddenOutput || "200"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      let outText = `Server Sandbox Compilation Output:\n> Language: ${selectedLanguage} | Backend Status: OK\n\n`;
+      
+      data.results.forEach((tc: any, idx: number) => {
+        if (tc.is_hidden) {
+          outText += `[Hidden Test Case #${idx + 1}] Verification: ${tc.passed ? 'PASSED (Evaluation Succeeded)' : 'FAILED (Evaluation Mismatch)'} (${tc.exec_time_ms}ms)\n`;
+          if (tc.error) {
+            outText += `   -> Error: ${tc.error}\n`;
+          }
+        } else {
+          outText += `[Sample Test Case #${idx + 1}] Input: ${tc.input} -> Expected: ${tc.expected}, Got: ${tc.user_output || 'N/A'} (${tc.passed ? 'PASSED' : 'FAILED'}) (${tc.exec_time_ms}ms)\n`;
+          if (tc.error) {
+            outText += `   -> Error: ${tc.error}\n`;
+          }
+        }
+      });
+
+      outText += `\nFinal Score: ${data.score_percentage}% | Passed ${data.passed_test_cases} / ${data.total_test_cases} Test Cases`;
+      setOutput(outText);
+      return;
+    } catch (apiErr: any) {
+      console.warn("Backend sandbox API unavailable, executing client fallback runner:", apiErr);
+    }
+
+    // Client-side Fallback Evaluation Engine if backend server is offline
+    try {
       const userCodeWrapper = `
         ${code}
         return solve(input);
       `;
-      // Create executable Function context
       const runner = new Function("input", userCodeWrapper);
       
-      // Public Test Case 1: Input: 5 -> Output: 10
       const test1Input = 5;
       const test1Expected = 10;
       let test1Passed = false;
       let test1Result: any = null;
       try {
         test1Result = runner(test1Input);
-        if (test1Result === test1Expected) {
-          test1Passed = true;
-        }
+        if (test1Result === test1Expected) test1Passed = true;
       } catch (err: any) {
         test1Result = `Error: ${err.message}`;
       }
 
-      // Public Test Case 2: Input: 12 -> Output: 24
       const test2Input = 12;
       const test2Expected = 24;
       let test2Passed = false;
       let test2Result: any = null;
       try {
         test2Result = runner(test2Input);
-        if (test2Result === test2Expected) {
-          test2Passed = true;
-        }
+        if (test2Result === test2Expected) test2Passed = true;
       } catch (err: any) {
         test2Result = `Error: ${err.message}`;
       }
 
-      // Hidden Test Case evaluation
-      // Parse inputs defensively (converting numeric strings if possible)
       const parseValue = (val: string | undefined, defaultVal: number) => {
         if (val === undefined || val === '') return defaultVal;
         return isNaN(Number(val)) ? val : Number(val);
@@ -292,14 +325,12 @@ export default function SecureWorkspace({
       let hiddenResult: any = null;
       try {
         hiddenResult = runner(hidInputRaw);
-        if (String(hiddenResult) === String(hidOutputExpected)) {
-          hiddenPassed = true;
-        }
+        if (String(hiddenResult) === String(hidOutputExpected)) hiddenPassed = true;
       } catch (err: any) {
         hiddenResult = `Error: ${err.message}`;
       }
 
-      const outputText = `Executing test cases...
+      const outputText = `Executing test cases (Client Sandbox Fallback)...
 > node index.js
 
 [Test Case 1] Input: ${test1Input} -> Expected: ${test1Expected}, Got: ${test1Result} (${test1Passed ? 'PASSED' : 'FAILED'})
