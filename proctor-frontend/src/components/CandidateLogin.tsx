@@ -14,6 +14,8 @@ interface CandidateLoginProps {
     mcqQuestions?: any[];
     cameraEnabled?: boolean;
     fullscreenEnabled?: boolean;
+    hiddenInput?: string;
+    hiddenOutput?: string;
   }) => void;
 }
 

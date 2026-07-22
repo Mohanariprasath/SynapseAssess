@@ -205,7 +205,7 @@ export default function CandidateReport({ params }: { params: Promise<{ candidat
                 {
                   id: 'tel-dyn-1',
                   timestamp: Date.now() - 300000,
-                  type: 'FOCUS_LOST',
+                  type: 'FOCUS_LOST' as const,
                   label: 'Focus Deviation Alert',
                   color: 'bg-amber-500 text-amber-950 border-amber-400',
                   description: 'Application focus shifted away from active proctoring room.',
