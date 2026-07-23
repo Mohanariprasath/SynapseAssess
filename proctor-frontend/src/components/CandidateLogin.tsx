@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { KeyRound, User, ArrowRight, AlertCircle, ShieldAlert } from 'lucide-react';
 
 interface CandidateLoginProps {
@@ -168,6 +169,13 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
             <p className="text-xs text-slate-400">Candidate Examination Portal</p>
           </div>
         </div>
+        <Link 
+          href="/recruiter/dashboard"
+          className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition duration-150 flex items-center space-x-1 hover:underline cursor-pointer"
+        >
+          <span>Recruiter Console</span>
+          <ArrowRight className="h-3 w-3" />
+        </Link>
       </header>
 
       {/* Main Login Card */}
