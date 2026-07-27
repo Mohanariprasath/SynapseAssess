@@ -8,15 +8,8 @@ import {
   ArrowRight, 
   AlertCircle, 
   ShieldAlert, 
-  Terminal as TerminalIcon, 
-  Cpu, 
-  Video, 
-  ShieldCheck, 
-  Check, 
   Lock, 
-  Activity, 
-  Layers, 
-  Globe 
+  Activity 
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -202,12 +195,8 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
           </div>
         </div>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-6 text-xs text-slate-400 font-medium">
-          <a href="#features" className="hover:text-white transition duration-150">Key Pillars</a>
-          <a href="#terminal" className="hover:text-white transition duration-150">Sandbox Logs</a>
-          <a href="#entrance" className="hover:text-white transition duration-150">Secure Entrance</a>
-        </nav>
+        {/* Navigation spacer */}
+        <div className="flex-1" />
 
         <div>
           <Badge variant="outline" className="px-3.5 py-1.5 text-[10px] rounded-full border-slate-800 bg-slate-950 text-slate-400 font-mono">
@@ -252,91 +241,8 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
         </div>
       </section>
 
-      {/* Terminal Mockup Section */}
-      <section id="terminal" className="w-full max-w-4xl mx-auto px-6 md:px-12 pb-24 relative z-10">
-        <div className="rounded-2xl border border-slate-900 bg-slate-950/80 backdrop-blur-xl shadow-2xl overflow-hidden shadow-violet-500/5">
-          {/* Terminal Window Header */}
-          <div className="bg-slate-900/40 px-4.5 py-3 border-b border-slate-900 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="size-3 rounded-full bg-slate-800" />
-              <div className="size-3 rounded-full bg-slate-800" />
-              <div className="size-3 rounded-full bg-slate-800" />
-            </div>
-            <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
-              <TerminalIcon className="size-3" />
-              <span>synapse-assess-daemon.log</span>
-            </div>
-            <div className="w-10" />
-          </div>
-
-          {/* Terminal Window Content */}
-          <div className="p-6 font-mono text-xs text-slate-350 space-y-2 min-h-[170px] overflow-y-auto leading-relaxed">
-            {terminalLines.slice(0, terminalLineIndex).map((line, idx) => (
-              <div key={idx} className="flex items-start gap-2">
-                <span className="text-violet-500 select-none">~</span>
-                <p className={idx === terminalLines.length - 1 ? "text-emerald-400 font-bold" : ""}>
-                  {line}
-                </p>
-              </div>
-            ))}
-            {terminalLineIndex < terminalLines.length && (
-              <div className="flex items-center gap-1 animate-pulse">
-                <span className="text-violet-500">~</span>
-                <span className="h-4 w-1.5 bg-violet-400 inline-block" />
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid Section */}
-      <section id="features" className="w-full max-w-6xl mx-auto px-6 md:px-12 pb-24 relative z-10">
-        <div className="text-center space-y-2 mb-14">
-          <h2 className="text-2xl font-bold tracking-tight text-white">Engineered for Technical Integrity</h2>
-          <p className="text-xs text-slate-500">How the proctoring gateway validates candidate capability without friction.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Feature 1 */}
-          <Card className="bg-slate-950/40 border-slate-900 hover:border-slate-800 transition duration-200">
-            <CardHeader className="gap-2">
-              <div className="size-8 rounded-lg bg-violet-500/10 border border-violet-500/25 flex items-center justify-center text-violet-400">
-                <Cpu className="size-4" />
-              </div>
-              <CardTitle className="text-white font-bold text-sm">Subprocess Sandbox</CardTitle>
-              <CardDescription className="text-slate-400 text-[11px] leading-normal">
-                Compiles JavaScript and Python directly inside secure background runtimes with CPU limits, runtime limits, and input-masking checks.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          {/* Feature 2 */}
-          <Card className="bg-slate-950/40 border-slate-900 hover:border-slate-800 transition duration-200">
-            <CardHeader className="gap-2">
-              <div className="size-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
-                <Video className="size-4" />
-              </div>
-              <CardTitle className="text-white font-bold text-sm">Twin Proctor Telemetry</CardTitle>
-              <CardDescription className="text-slate-400 text-[11px] leading-normal">
-                Webcam face-mesh checks and secure browser fullscreen locking detect copy-paste inputs or tab jumps instantly.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          {/* Feature 3 */}
-          <Card className="bg-slate-950/40 border-slate-900 hover:border-slate-800 transition duration-200">
-            <CardHeader className="gap-2">
-              <div className="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
-                <ShieldCheck className="size-4" />
-              </div>
-              <CardTitle className="text-white font-bold text-sm">Stateful AI Intervention</CardTitle>
-              <CardDescription className="text-slate-400 text-[11px] leading-normal">
-                Stateful checkpoints block the code editor, prompting candidates to explain algorithms and strategies as they code.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </section>
+      {/* Spacer */}
+      <div className="h-8" />
 
       {/* Entrance / Login Card Form (The Portal Gate) */}
       <section id="entrance" ref={loginCardRef} className="w-full max-w-md mx-auto px-6 pb-24 relative z-10 scroll-mt-24">
@@ -431,9 +337,7 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
           <span>© 2026 SynapseAssess Inc. Recruiter Verification Gateway.</span>
         </div>
         <div className="flex items-center gap-4">
-          <a href="#features" className="hover:underline">Pillars</a>
-          <span>•</span>
-          <a href="#entrance" className="hover:underline">Secure Entrance</a>
+          <span>Secure Candidate Portal Gateway</span>
         </div>
       </footer>
     </div>
