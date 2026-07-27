@@ -210,13 +210,9 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
         </nav>
 
         <div>
-          <Link 
-            href="/recruiter/dashboard"
-            className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-900 border border-slate-800 text-slate-200 hover:text-white hover:border-slate-700 transition duration-150 flex items-center gap-1.5 shadow-md shadow-black/50"
-          >
-            <span>Recruiter Console</span>
-            <ArrowRight className="size-3.5" />
-          </Link>
+          <Badge variant="outline" className="px-3.5 py-1.5 text-[10px] rounded-full border-slate-800 bg-slate-950 text-slate-400 font-mono">
+            System: Active
+          </Badge>
         </div>
       </header>
 
@@ -437,7 +433,7 @@ export default function CandidateLogin({ onLoginSuccess }: CandidateLoginProps) 
         <div className="flex items-center gap-4">
           <a href="#features" className="hover:underline">Pillars</a>
           <span>•</span>
-          <Link href="/recruiter/dashboard" className="hover:underline font-semibold text-violet-400">Recruiter Console</Link>
+          <a href="#entrance" className="hover:underline">Secure Entrance</a>
         </div>
       </footer>
     </div>
